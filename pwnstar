@@ -5,7 +5,7 @@
 # See the README.txt for hints on usage
 
 # --------------------------------------------------------------------------------------------------------------------#
-# Version: 20140428
+# Version: 20140428 [edit by j0nk0 20180530]
 #
 # Copyright (C) 2014  VulpiArgenti
 
@@ -260,6 +260,7 @@ setup_fn()
 
 dev_check_fn() # from "quickset" - checks device exists
 {
+set -x
     ifconfig $dev_check_var &> /dev/null  # &> redirects stdout and stderr; prevents screen clutter
     if [ $? -ne 0 ];then
         echo -e "$warn\nDevice does NOT exist"
@@ -268,18 +269,18 @@ dev_check_fn() # from "quickset" - checks device exists
     else
         dev_check= # nulled
     fi
-}       
+}
 
 interface_fn()
 {
     API= # AP interface
     ICI= # Internet-connected interface
     internet=
-    
+
     if [[ $apusage != [1-2] ]];then
         echo -e "$q\nAre we giving internet access? (y/n)"
         read internet
-        
+
         if [[ $internet = "y" ]]; then
             if [[ -z $ICI ]];then
                 echo -e "$def\nAvailable interfaces:"
@@ -296,7 +297,7 @@ interface_fn()
                     interface_fn
                 fi
             fi
-            
+
             if [[ $ICI = "eth0" ]];then
                 echo -e "$warn\nNot macchanging $ICI. Do it yourself if required" # prevents connection problems from macchanging eth0 in a VM
                 sleep 2
@@ -358,8 +359,16 @@ interface_fn()
         sleep 2
         interface_fn
     fi
-    echo -e "$info\nStarting monitor mode..." # automatically assigns the mon interface to "monap"
-    monap=$(airmon-ng start $API|grep enabled|awk '{ print $5"" }'|cut -c -4)
+        echo -e "$info\nStarting monitor mode..." # automatically assigns the mon interface to "monap"
+#[edit by j0nk0 20180530]
+        if ! [ -z $(ifconfig |grep $API | cut -d":" -f1| grep mon) ]
+         then
+           echo yes mon mode already enabled
+         else
+          airmon-ng start $API
+        fi
+        monap=$(ifconfig |grep $API | cut -d":" -f1) ; echo $monap
+
     dev_check_var=$monap
     dev_check_fn
     if [[ $dev_check == "fail" ]];then
@@ -436,7 +445,15 @@ monscan_start_fn()
 {
     if [[ -z $monscan ]];then # check hasn't been started in a previous loop through the script
         echo -e "$info\nStarting new monitor interface for scanning..."
-        monscan=$(airmon-ng start $API|grep enabled|awk '{ print $5"" }'|cut -c -4)
+#[edit by j0nk0 20180530]
+	if ! [ -z $(ifconfig |grep $API | cut -d":" -f1| grep mon) ]
+	 then
+	   echo "Yes mon mode already enabled."
+	  else
+	   airmon-ng start $API
+	fi
+        monscan=$(ifconfig |grep $API | cut -d":" -f1) ; echo $monscan
+
         dev_check_var=$monscan
         dev_check_fn
         if [[ $dev_check == "fail" ]]; then
@@ -1503,7 +1520,14 @@ mondeauth_start_fn()
 {
     if [[ -z $mondeauth ]];then
         echo -e "$info\nStarting new monitor interface for deauth..."    # new mon interface to avoid changing AP channel
-        mondeauth=$(airmon-ng start $API|grep enabled|awk '{ print $5"" }'|cut -c -4)
+#[edit by j0nk0 20180530]
+	if ! [ -z $(ifconfig |grep $API | cut -d":" -f1| grep mon) ]
+	 then
+	   echo "Yes mon mode already enabled"
+	  else
+	   airmon-ng start $API
+	fi
+	mondeauth=$(ifconfig |grep $API | cut -d":" -f1) ; echo $mondeauth
         sleep 2
         dev_check_var=$mondeauth
         dev_check_fn
